@@ -1,0 +1,28 @@
+# Python virtual environments
+anime/
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Jupyter/IPython
+.ipynb_checkpoints
+
+# CSV and logs
+*.csv
+*.log
+
+# Dataset folders
+myanimelist dataset/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# VSCode / IDE configs
+.vscode/
+.idea/
