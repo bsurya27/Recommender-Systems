@@ -26,3 +26,5 @@ Thumbs.db
 # VSCode / IDE configs
 .vscode/
 .idea/
+
+RAG_Data_creation\wiki_pages
