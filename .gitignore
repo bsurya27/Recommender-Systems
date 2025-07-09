@@ -19,6 +19,11 @@ __pycache__/
 # Dataset folders
 MyAnimeList-dataset/
 noGithubpush/
+dataset/
+dataset/archive/wiki_pages
+dataset/archive/wiki_index.faiss
+generated_genres/
+generated_synopses/
 # System files
 .DS_Store
 Thumbs.db
