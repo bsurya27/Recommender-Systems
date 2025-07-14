@@ -398,7 +398,7 @@ def advanced_anime_search(
     min_rating: Optional[float] = None,
     max_episodes: Optional[int] = None,
     studios: Optional[List[str]] = None,
-    year_range: Optional[Tuple[int, int]] = None,
+    year_range: Optional[List[int]] = None,
     anime_type: Optional[str] = None,
     source: Optional[str] = None,
     limit: int = 50
@@ -411,7 +411,7 @@ def advanced_anime_search(
         min_rating (Optional[float]): Minimum rating
         max_episodes (Optional[int]): Maximum episode count
         studios (Optional[List[str]]): Studios to filter by
-        year_range (Optional[Tuple[int, int]]): Year range (start, end)
+        year_range (Optional[List[int]]): Year range as [start_year, end_year]
         anime_type (Optional[str]): Type of anime (TV, Movie, OVA, etc.)
         source (Optional[str]): Source material
         limit (int): Maximum results to return
@@ -452,8 +452,8 @@ def advanced_anime_search(
             filtered_df = filtered_df[studio_mask]
         
         # Apply year range filter
-        if year_range:
-            start_year, end_year = year_range
+        if year_range and len(year_range) == 2:
+            start_year, end_year = year_range[0], year_range[1]
             filtered_df = filtered_df[
                 (filtered_df['aired_from_year'].notna()) & 
                 (filtered_df['aired_from_year'] >= start_year) & 
