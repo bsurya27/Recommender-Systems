@@ -4,9 +4,12 @@ A conversational anime recommendation agent powered by **OpenAI GPT-4o mini** an
 
 ## 🚀 Features
 
+- **Modern Web Interface**: Beautiful Gradio-based UI with real-time chat
 - **Conversational Interface**: Natural chat to understand your preferences
 - **Personalized Recommendations**: Tailored suggestions based on your tastes
 - **Smart Preference Learning**: Remembers what you like/dislike during conversation
+- **Working Dataset Visualization**: See what anime the agent is considering for you
+- **Mode Detection**: Visual indication of conversation vs recommendation modes
 - **Comprehensive Database**: Access to detailed anime information and ratings
 - **Intelligent Reasoning**: Uses ReAct pattern for thoughtful recommendations
 - **Cost-Effective**: Powered by GPT-4o mini for optimal price/performance
@@ -22,12 +25,14 @@ A conversational anime recommendation agent powered by **OpenAI GPT-4o mini** an
 
 ```
 Agent_csv/
-├── tools.py           # LangChain tools for anime data operations
-├── react_agent.py     # Conversational recommendation agent
-├── demo.py           # Interactive chat interface
-├── tools_test.py     # Test suite for all tools
-├── requirements.txt  # Python dependencies
-└── README.md        # This file
+├── tools.py              # LangChain tools for anime data operations
+├── react_agent.py        # Conversational recommendation agent
+├── demo.py              # Interactive chat interface (CLI)
+├── gradio_ui.py         # Web-based Gradio UI interface
+├── launch_ui.py         # Easy launcher for Gradio UI
+├── tools_test.py        # Test suite for all tools
+├── requirements.txt     # Python dependencies
+└── README.md           # This file
 ```
 
 ## 🛠️ Setup
@@ -52,9 +57,31 @@ Visit [platform.openai.com/api-keys](https://platform.openai.com/api-keys) to ge
 
 ## 🎯 Usage
 
-### Interactive Conversation
+### Web-based UI (Recommended)
 
-Run the chat interface for personalized recommendations:
+Launch the modern Gradio web interface:
+
+```bash
+cd Agent_csv
+python gradio_ui.py
+```
+
+Or use the launcher:
+
+```bash
+python launch_ui.py
+```
+
+This will open a web interface at `http://localhost:7860` with:
+- 💬 **Chat Interface**: Natural conversation with the agent
+- 📊 **Working Dataset Display**: See what anime the agent is considering
+- 🔧 **Mode Detection**: Visual indication of conversation vs recommendation mode
+- 💫 **Preference Tracking**: Shows what the agent has learned about your tastes
+- 🎯 **Real-time Updates**: Live updates as the agent processes your requests
+
+### Command Line Interface
+
+Run the traditional CLI interface:
 
 ```bash
 cd Agent_csv
