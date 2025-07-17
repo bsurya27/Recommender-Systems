@@ -1,19 +1,29 @@
 import pandas as pd
+import pickle
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
 class InteractiveAnimeRecommender:
     def __init__(self):
-        self.user_anime_matrix = None
+        self.svd = None
         self.anime_info = None
-        self.anime_ids = None
+        self.all_anime_ids = None
+        self.combined_vectors = None
+        self.anime_df = None
+        self.anime_id_to_index = None
 
     def load_data(self):
-        print("Loading user-anime matrix and anime info...")
-        self.user_anime_matrix = pd.read_csv('user_anime_matrix.csv', index_col=0)
-        valid_anime = pd.read_csv('../somewhatcleanedAnime.csv')
-        self.anime_info = valid_anime.set_index('anime_id')
-        self.anime_ids = self.user_anime_matrix.columns.astype(str)
+        print("Loading SVD model and anime info...")
+        with open('svd_model_surprise.pkl', 'rb') as f:
+            self.svd = pickle.load(f)
+        anime_df = pd.read_csv('../somewhatcleanedAnime.csv')
+        self.anime_info = anime_df.set_index('anime_id')
+        self.all_anime_ids = set(self.anime_info.index.astype(str))
+        # For similarity-based
+        print("Loading similarity-based model data...")
+        self.anime_df = pd.read_csv('anime_metadata_cleaned.csv')
+        self.combined_vectors = np.load('anime_combined_vectors.npy')
+        self.anime_id_to_index = {aid: idx for idx, aid in enumerate(self.anime_df["anime_id"])}
 
     def get_default_anime_suggestions(self, n_suggestions=10):
         popular_anime = self.anime_info.sort_values('members', ascending=False).head(n_suggestions)
@@ -37,6 +47,7 @@ class InteractiveAnimeRecommender:
             except ValueError:
                 print("Please enter a valid number")
         user_ratings = {}
+        user_liked_genres = set()
         if choice == 1:
             print("\nNo problem! Let me suggest some popular anime to get started.")
             default_anime = self.get_default_anime_suggestions(8)
@@ -52,6 +63,12 @@ class InteractiveAnimeRecommender:
                         score = int(response)
                         if 1 <= score <= 10:
                             user_ratings[anime['anime_id']] = score
+                            # Track liked genres
+                            if score >= 7:
+                                genres = self.anime_info.loc[int(anime['anime_id']), 'genre']
+                                if pd.notna(genres):
+                                    for g in str(genres).split(','):
+                                        user_liked_genres.add(g.strip())
                             break
                         else:
                             print("Please enter a number between 1 and 10, or press Enter to skip")
@@ -92,6 +109,12 @@ class InteractiveAnimeRecommender:
                             score = int(response)
                             if 1 <= score <= 10:
                                 user_ratings[str(anime.name)] = score
+                                # Track liked genres
+                                if score >= 7:
+                                    genres = anime['genre']
+                                    if pd.notna(genres):
+                                        for g in str(genres).split(','):
+                                            user_liked_genres.add(g.strip())
                                 break
                             else:
                                 print("Please enter a number between 1 and 10")
@@ -109,59 +132,103 @@ class InteractiveAnimeRecommender:
                             score = int(response)
                             if 1 <= score <= 10:
                                 user_ratings[anime['anime_id']] = score
+                                # Track liked genres
+                                if score >= 7:
+                                    genres = self.anime_info.loc[int(anime['anime_id']), 'genre']
+                                    if pd.notna(genres):
+                                        for g in str(genres).split(','):
+                                            user_liked_genres.add(g.strip())
                                 break
                             else:
                                 print("Please enter a number between 1 and 10, or press Enter to skip")
                         except ValueError:
                             print("Please enter a valid number, or press Enter to skip")
-        return user_ratings
+        return user_ratings, user_liked_genres
 
-    def build_user_vector(self, user_ratings):
-        # Build a vector matching the columns of the user-anime matrix
-        vec = np.zeros(len(self.anime_ids))
-        for idx, anime_id in enumerate(self.anime_ids):
-            if anime_id in user_ratings:
-                vec[idx] = user_ratings[anime_id]
-        return vec.reshape(1, -1)
-
-    def get_knn_recommendations(self, user_vector, k=10, n_recommendations=10):
-        # Compute cosine similarity to all users
-        matrix = self.user_anime_matrix.values
-        similarities = cosine_similarity(user_vector, matrix)[0]
-        top_k_idx = np.argsort(similarities)[-k:][::-1]
-        similar_users = self.user_anime_matrix.iloc[top_k_idx]
-        # Weighted sum of ratings from similar users
-        weighted_scores = (similar_users.T * similarities[top_k_idx]).T.sum(axis=0)
-        # Recommend anime not rated by the user, sorted by score
-        user_rated = set(np.where(user_vector.flatten() > 0)[0])
+    def recommend(self, user_ratings, user_liked_genres, n_recommendations=10):
+        # Predict ratings for all anime the user hasn't rated
+        predictions = []
+        for anime_id in self.all_anime_ids:
+            if anime_id not in user_ratings:
+                pred = self.svd.predict('new_user', anime_id)
+                score = pred.est
+                # Boost score if anime is in a liked genre
+                genres = self.anime_info.loc[int(anime_id), 'genre'] if int(anime_id) in self.anime_info.index else None
+                if genres and user_liked_genres:
+                    for g in str(genres).split(','):
+                        if g.strip() in user_liked_genres:
+                            score *= 1.2
+                            break
+                predictions.append((anime_id, score, genres))
+        # Sort by predicted rating
+        predictions.sort(key=lambda x: x[1], reverse=True)
         recs = []
-        for idx in np.argsort(weighted_scores)[::-1]:
-            if idx not in user_rated and weighted_scores[idx] > 0:
-                anime_id = self.anime_ids[idx]
-                if anime_id in self.anime_info.index.astype(str):
-                    recs.append({
-                        'anime_id': anime_id,
-                        'name': self.anime_info.loc[int(anime_id), 'name'],
-                        'score': weighted_scores[idx]
-                    })
-            if len(recs) >= n_recommendations:
-                break
+        for anime_id, score, genres in predictions[:n_recommendations]:
+            if int(anime_id) in self.anime_info.index:
+                recs.append({'anime_id': anime_id, 'name': self.anime_info.loc[int(anime_id), 'name'], 'score': score, 'genre': genres})
         return recs
+
+    # --- Similarity-based recommender ---
+    def find_anime_id_by_name(self, name):
+        name = name.lower()
+        for idx, row in self.anime_df.iterrows():
+            if name == str(row["name"]).lower() or name == str(row.get("english_name", "")).lower():
+                return row["anime_id"]
+        # fallback: partial match
+        for idx, row in self.anime_df.iterrows():
+            if name in str(row["name"]).lower() or name in str(row.get("english_name", "")).lower():
+                return row["anime_id"]
+        return None
+
+    def recommend_similar(self, anime_id, top_n=10, filter_genres=None):
+        idx = self.anime_id_to_index.get(anime_id)
+        if idx is None:
+            return []
+        query_vec = self.combined_vectors[idx].reshape(1, -1)
+        similarities = cosine_similarity(query_vec, self.combined_vectors)[0]
+        if filter_genres:
+            mask = self.anime_df["genre_list"].apply(lambda genres: any(g in genres for g in filter_genres))
+            similarities = similarities * mask.to_numpy()
+        top_idx = similarities.argsort()[::-1]
+        top_idx = [i for i in top_idx if i != idx][:top_n]
+        results = self.anime_df.iloc[top_idx][["anime_id", "name", "genre", "synopsis"]].copy()
+        results["similarity"] = similarities[top_idx]
+        return results
 
     def show_recommendations(self, recommendations):
         print(f"\n=== Your Anime Recommendations ===")
         print("Based on your preferences, here are some anime you might enjoy:")
         print()
         for i, rec in enumerate(recommendations, 1):
-            print(f"{i}. {rec['name']} (Score: {rec['score']:.2f})")
+            genre_str = f" | Genres: {rec['genre']}" if rec['genre'] else ""
+            print(f"{i}. {rec['name']} (Predicted Score: {rec['score']:.2f}){genre_str}")
+
+    def show_similar_recommendations(self, recs, base_name):
+        print(f"\n=== Anime Similar to '{base_name}' ===")
+        for i, row in recs.iterrows():
+            print(f"{i+1}. {row['name']} | Genres: {row['genre']} | Similarity: {row['similarity']:.3f}")
 
     def run_interactive_session(self):
-        print("=== Welcome to the Interactive Anime Recommender (KNN)! ===")
+        print("=== Welcome to the Interactive Anime Recommender (Surprise SVD + Similarity)! ===")
         self.load_data()
-        user_ratings = self.ask_anime_preferences()
-        user_vector = self.build_user_vector(user_ratings)
-        recommendations = self.get_knn_recommendations(user_vector)
-        self.show_recommendations(recommendations)
+        print("Choose recommendation type:")
+        print("1. Personalized recommendations (collaborative filtering)")
+        print("2. Find anime similar to a given anime")
+        choice = input("Enter 1 or 2: ").strip()
+        if choice == "1":
+            user_ratings, user_liked_genres = self.ask_anime_preferences()
+            recommendations = self.recommend(user_ratings, user_liked_genres)
+            self.show_recommendations(recommendations)
+        elif choice == "2":
+            name = input("Enter anime name (English or original): ").strip()
+            anime_id = self.find_anime_id_by_name(name)
+            if anime_id is None:
+                print("Anime not found.")
+                return
+            recs = self.recommend_similar(anime_id)
+            self.show_similar_recommendations(recs, name)
+        else:
+            print("Invalid choice.")
         print("\n=== Session Complete ===")
 
 def main():
