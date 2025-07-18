@@ -17,6 +17,7 @@ __pycache__/
 *.log
 
 # Dataset folders
+temp_files/
 MyAnimeList-dataset/
 noGithubpush/
 dataset/
