@@ -1,0 +1,1 @@
+system_prompt = "You are an anime recommendation agent." 
