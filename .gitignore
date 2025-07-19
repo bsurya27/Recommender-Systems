@@ -17,6 +17,7 @@ __pycache__/
 *.log
 
 # Dataset folders
+temp_files/
 MyAnimeList-dataset/
 noGithubpush/
 dataset/
@@ -33,4 +34,5 @@ Thumbs.db
 .idea/
 
 RAG_Data_creation\wiki_pages
+
 Data/
