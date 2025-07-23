@@ -13,16 +13,35 @@ class InteractiveAnimeRecommender:
         self.anime_id_to_index = None
 
     def load_data(self):
-        print("Loading SVD model and anime info...")
-        with open('svd_model_surprise.pkl', 'rb') as f:
-            self.svd = pickle.load(f)
-        anime_df = pd.read_csv('../somewhatcleanedAnime.csv')
+        # ------------------------------------------------------------
+        # Attempt to load the Surprise SVD model. If `scikit-surprise`
+        # is not installed, unpickling will fail.  We handle this
+        # gracefully so that similarity-based recommendations can still
+        # function without the collaborative-filtering component.
+        # ------------------------------------------------------------
+        print("Loading SVD model (optional)...")
+        try:
+            with open('Data/svd_model_surprise.pkl', 'rb') as f:
+                self.svd = pickle.load(f)
+        except (ModuleNotFoundError, ImportError):
+            print("⚠️  scikit-surprise not available – skipping SVD model.\n"
+                  "    Only similarity-based recommendations will work.")
+            self.svd = None
+        except FileNotFoundError:
+            print("⚠️  SVD model file not found – skipping collaborative filtering.")
+            self.svd = None
+        except Exception as e:
+            print(f"⚠️  Failed to load SVD model ({e}) – proceeding without it.")
+            self.svd = None
+
+        print("Loading anime info...")
+        anime_df = pd.read_csv('Data/somewhatcleanedAnime.csv')
         self.anime_info = anime_df.set_index('anime_id')
         self.all_anime_ids = set(self.anime_info.index.astype(str))
         # For similarity-based
         print("Loading similarity-based model data...")
-        self.anime_df = pd.read_csv('anime_metadata_cleaned.csv')
-        self.combined_vectors = np.load('anime_combined_vectors.npy')
+        self.anime_df = pd.read_csv('Data/anime_metadata_cleaned.csv')
+        self.combined_vectors = np.load('Data/anime_combined_vectors.npy')
         self.anime_id_to_index = {aid: idx for idx, aid in enumerate(self.anime_df["anime_id"])}
 
     def get_default_anime_suggestions(self, n_suggestions=10):

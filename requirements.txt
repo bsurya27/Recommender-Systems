@@ -1,10 +1,11 @@
-numpy
-pandas
 scikit-learn
+numpy<2
+pandas
 tqdm
 gradio
-langchain
 langchain-core
+langchain
+openai
 langgraph
 langchain_openai
 python-dotenv
