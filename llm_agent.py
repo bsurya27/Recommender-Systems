@@ -17,6 +17,7 @@ load_dotenv()
 from typing import Annotated, Sequence, TypedDict, Optional
 
 import pandas as pd
+import uuid
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import (
@@ -63,10 +64,11 @@ def tool_node(state: ChatState):
     for call in getattr(last_msg, "tool_calls", []) or []:
         tool_name = call.get("name")
         tool_args = call.get("args", {})
+        tool_call_id = call.get("id")  # Use the id from the tool call
         tool = next((t for t in tools_list if t.name == tool_name), None)
         if tool is None:
             new_messages.append(
-                ToolMessage(name=tool_name or "unknown", content="ERROR: tool not found")
+                ToolMessage(name=tool_name or "unknown", content="ERROR: tool not found", tool_call_id=tool_call_id)
             )
             continue
         try:
@@ -76,7 +78,7 @@ def tool_node(state: ChatState):
         # If the tool returned a DataFrame, store it
         if isinstance(result, pd.DataFrame):
             df = result
-        new_messages.append(ToolMessage(name=tool_name, content=str(result)))
+        new_messages.append(ToolMessage(name=tool_name, content=str(result), tool_call_id=tool_call_id))
     return {"messages": new_messages, "df": df}
 
 # -----------------------------------------------------------------------------
