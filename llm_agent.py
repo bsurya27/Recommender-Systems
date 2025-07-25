@@ -14,7 +14,7 @@ The graph cycles until the LLM responds without tool calls.
 from dotenv import load_dotenv
 load_dotenv()
 
-from typing import Annotated, Sequence, TypedDict, Optional
+from typing import Annotated, Sequence, TypedDict, Optional, List, Any
 
 import pandas as pd
 import uuid
@@ -55,16 +55,26 @@ def llm_node(state: ChatState):
     return {"messages": [response]}
 
 
-def tool_node(state: ChatState):
+def _extract_anime_ids(result: Any) -> List[int] | None:
+    """Extract anime IDs from various tool result formats."""
+    if isinstance(result, list):
+        if all(isinstance(x, int) for x in result):
+            return result  # Already a list of IDs
+        if all(isinstance(x, dict) and 'anime_id' in x for x in result):
+            return [x['anime_id'] for x in result]  # List of anime dicts
+    return None
+
+def tool_node(state: ChatState) -> dict:
     """Execute tool calls emitted by the LLM."""
     new_messages: list[BaseMessage] = []
     df: Optional[pd.DataFrame] = state.get("df")
     last_msg = state["messages"][-1]
-    # Iterate over tool calls (if any)
+    print("Tool node - processing tool calls...")
     for call in getattr(last_msg, "tool_calls", []) or []:
         tool_name = call.get("name")
         tool_args = call.get("args", {})
         tool_call_id = call.get("id")  # Use the id from the tool call
+        print(f"Executing tool: {tool_name} with args: {tool_args}")
         tool = next((t for t in tools_list if t.name == tool_name), None)
         if tool is None:
             new_messages.append(
@@ -73,11 +83,21 @@ def tool_node(state: ChatState):
             continue
         try:
             result = tool.invoke(tool_args)
+            print(f"Tool result type: {type(result)}")
+            
+            # Handle different result types
+            anime_ids = _extract_anime_ids(result)
+            if anime_ids:
+                print(f"Extracted {len(anime_ids)} anime IDs: {anime_ids[:5]}...")
+                from tools import get_anime_details
+                df = get_anime_details.invoke({"anime_ids": anime_ids})
+                print(f"Fetched details DataFrame shape: {df.shape}")
+            elif isinstance(result, pd.DataFrame):
+                print(f"Got DataFrame directly with shape: {result.shape}")
+                df = result
         except Exception as e:
+            print(f"Tool error: {e}")
             result = f"ERROR running tool: {e}"
-        # If the tool returned a DataFrame, store it
-        if isinstance(result, pd.DataFrame):
-            df = result
         new_messages.append(ToolMessage(name=tool_name, content=str(result), tool_call_id=tool_call_id))
     return {"messages": new_messages, "df": df}
 
@@ -111,7 +131,7 @@ _chat_workflow = graph.compile()
 # Public chat helper
 # -----------------------------------------------------------------------------
 
-def chat(user_text: str, history: Sequence[BaseMessage] | None = None):
+def chat(user_text: str, history: Sequence[BaseMessage] | None = None) -> tuple[str, list[BaseMessage], pd.DataFrame | None]:
     """Send a user message to the assistant and get a reply.
 
     Parameters
@@ -131,10 +151,14 @@ def chat(user_text: str, history: Sequence[BaseMessage] | None = None):
 
     # Kick off the graph with existing history + new HumanMessage
     state_in: ChatState = {"messages": history + [HumanMessage(content=user_text)], "df": None}
+    print("\nStarting chat workflow...")
     result = _chat_workflow.invoke(state_in)
+    print("Chat workflow finished")
 
     # The assistant's final reply is the last AI message
     final_messages = result["messages"]
     assistant_reply = next((m.content for m in reversed(final_messages) if isinstance(m, AIMessage)), "")
+    final_df = result.get("df")
+    print(f"Final DataFrame: {'shape=' + str(final_df.shape) if final_df is not None else 'None'}")
 
-    return assistant_reply, list(final_messages), result.get("df") 
+    return assistant_reply, list(final_messages), final_df 
