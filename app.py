@@ -1,40 +1,80 @@
 import gradio as gr
 import pandas as pd
-from prompt import system_prompt
+from langchain_core.messages import BaseMessage
+from llm_agent import chat as llm_chat
 
-_df = pd.read_csv("Data/anime_clean.csv")
 
-def respond(message, history, df_state):
-    history = history + [(message, None)]
-    lower = message.lower()
-    genres = []
-    for g in [
-        "action","drama","romance","comedy","adventure","fantasy","sci-fi","slice of life","horror","mystery","supernatural","sports","shounen","seinen","shoujo","josei"
-    ]:
-        if g in lower:
-            genres.append(g)
-    if genres:
-        mask = df_state["genre"].fillna("").str.contains("|".join(genres), case=False, na=False)
-        df_state = df_state[mask]
-    reply = "Got it. Tell me more about what you like."
-    history[-1] = (message, reply)
-    return history, df_state, df_state
+def _display_df(df: pd.DataFrame | None, n: int = 20):
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["anime_id", "name", "genre", "rating"])
+    disp = df.head(n).copy()
+    if "synopsis" in disp.columns:
+        disp["synopsis"] = disp["synopsis"].fillna("").str.slice(0, 120) + "..."
+    return disp
 
-def recommend(history, df_state):
-    rec_df = df_state.sort_values("rating", ascending=False).head(10).reset_index(drop=True)
-    titles = rec_df["name"].tolist()
-    response = "Here are some anime you may enjoy:\n" + "\n".join(titles)
-    history = history + [("", response)]
-    return history, rec_df, df_state
 
-with gr.Blocks() as demo:
-    chatbot = gr.Chatbot()
-    table = gr.Dataframe(value=_df.head(20), interactive=False)
-    text = gr.Textbox()
-    df_state = gr.State(_df)
-    text.submit(respond, inputs=[text, chatbot, df_state], outputs=[chatbot, table, df_state])
-    rec_btn = gr.Button("Recommend")
-    rec_btn.click(recommend, inputs=[chatbot, df_state], outputs=[chatbot, table, df_state])
+def respond(user_text: str, chat_display, history_state, df_state):
+    """Pass user input to LLM agent and update chat, history, and table."""
+    print("Before chat - df shape:", df_state.shape if df_state is not None else "None")
+    
+    # Get response and potential new DataFrame from agent
+    assistant_reply, new_history, new_df = llm_chat(user_text, history_state)
+    print("After chat - new_df shape:", new_df.shape if new_df is not None else "None")
+
+    # Update chat display
+    if chat_display is None:
+        chat_display = []
+    chat_display.append({"role": "user", "content": user_text})
+    chat_display.append({"role": "assistant", "content": assistant_reply})
+
+    # Update DataFrame state and table view
+    if new_df is not None and not new_df.empty:
+        df_state = new_df
+        print("Updating table with new data")
+    
+    table_df = _display_df(df_state)
+    print("Table display shape:", table_df.shape)
+
+    return chat_display, new_history, table_df, df_state
+
+
+with gr.Blocks(title="Anime Assistant (GPT-4o-mini + Tools)") as demo:
+    # Chat interface
+    chatbot = gr.Chatbot(type="messages")
+    
+    # State containers
+    state_history = gr.State([])  # List[BaseMessage]
+    state_df = gr.State(pd.DataFrame(columns=["anime_id", "name", "genre", "rating"]))
+    
+    # Input row
+    with gr.Row():
+        txt = gr.Textbox(
+            show_label=False,
+            placeholder="Ask me anything about anime...",
+            scale=4
+        )
+        send = gr.Button("Send", scale=1)
+    
+    # Results table
+    table = gr.Dataframe(
+        value=pd.DataFrame(columns=["anime_id", "name", "genre", "rating"]),
+        interactive=False,
+        visible=True,
+        wrap=True,
+    )
+    
+    # Wire up the send button
+    send.click(
+        respond,
+        inputs=[txt, chatbot, state_history, state_df],
+        outputs=[chatbot, state_history, table, state_df],
+        show_progress=True,
+    )
+
 
 def main():
     demo.launch()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,11 @@
+scikit-learn
 numpy<2
 pandas
-scikit-surprise
-scikit-learn
 tqdm
+gradio
+langchain-core
+langchain
+openai
+langgraph
+langchain_openai
+python-dotenv
