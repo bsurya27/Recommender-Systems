@@ -189,14 +189,28 @@ class InteractiveAnimeRecommender:
 
     # --- Similarity-based recommender ---
     def find_anime_id_by_name(self, name):
-        name = name.lower()
+        name = name.lower().strip()
+        
+        # First try exact matches
         for idx, row in self.anime_df.iterrows():
-            if name == str(row["name"]).lower() or name == str(row.get("english_name", "")).lower():
+            # Check name column (handle nulls)
+            anime_name = str(row["name"]).lower() if pd.notna(row["name"]) else ""
+            # Check title_english column (handle nulls)
+            english_name = str(row.get("title_english", "")).lower() if pd.notna(row.get("title_english")) else ""
+            
+            if name == anime_name or name == english_name:
                 return row["anime_id"]
-        # fallback: partial match
+        
+        # Fallback: partial matches (more flexible)
         for idx, row in self.anime_df.iterrows():
-            if name in str(row["name"]).lower() or name in str(row.get("english_name", "")).lower():
+            # Check name column (handle nulls)
+            anime_name = str(row["name"]).lower() if pd.notna(row["name"]) else ""
+            # Check title_english column (handle nulls)
+            english_name = str(row.get("title_english", "")).lower() if pd.notna(row.get("title_english")) else ""
+            
+            if name in anime_name or name in english_name:
                 return row["anime_id"]
+        
         return None
 
     def recommend_similar(self, anime_id, top_n=10, filter_genres=None):

@@ -6,8 +6,16 @@ from llm_agent import chat as llm_chat
 
 def _display_df(df: pd.DataFrame | None, n: int = 20):
     if df is None or df.empty:
-        return pd.DataFrame(columns=["anime_id", "name", "genre", "rating"])
+        return pd.DataFrame(columns=["name", "genre", "rating"])
+    
+    # Columns to exclude from display
+    exclude_cols = ["anime_id", "synopsis"]
+    
     disp = df.head(n).copy()
+    
+    # Remove unwanted columns
+    disp = disp.drop(columns=[col for col in exclude_cols if col in disp.columns])
+    
     if "synopsis" in disp.columns:
         disp["synopsis"] = disp["synopsis"].fillna("").str.slice(0, 120) + "..."
     return disp
@@ -73,7 +81,7 @@ with gr.Blocks(title="Anime Assistant (GPT-4o-mini + Tools)") as demo:
 
 
 def main():
-    demo.launch()
+    demo.launch(share=True)
 
 
 if __name__ == "__main__":

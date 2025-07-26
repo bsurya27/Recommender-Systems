@@ -60,11 +60,12 @@ def recommend_similar_anime(anime_name: str, top_n: int = 10) -> List[dict]:
 
     This tool uses a pre-computed embedding + metadata index (see
     `interactive_recommender.py`) to find titles with the highest cosine similarity
-    to the query anime.  If the anime cannot be found, an empty list is returned.
+    to the query anime. It searches both original and English names, handling null values properly.
+    If the anime cannot be found, an empty list is returned.
 
     Args:
         anime_name: Title of an anime (either English or original) to base the
-            similarity search on.
+            similarity search on. Works with names like "Death Note", "Attack on Titan", etc.
         top_n: Maximum number of similar anime to return (default 10).
 
     Returns:
@@ -79,8 +80,10 @@ def recommend_similar_anime(anime_name: str, top_n: int = 10) -> List[dict]:
     recommender = _load_adv_recommender()
     anime_id = recommender.find_anime_id_by_name(anime_name)
     if anime_id is None:
+        print(f"⚠️  Anime '{anime_name}' not found in database")
         return []
 
+    print(f"✅ Found anime ID {anime_id} for '{anime_name}'")
     df_recs = recommender.recommend_similar(anime_id, top_n=top_n)
     # Convert DataFrame rows to list[dict]
     return df_recs.to_dict(orient="records")
@@ -208,6 +211,57 @@ def recommend_anime(anime_ids: List[int]) -> List[int]:
 
 
 
+@tool
+def collaborative_filtering_recommend(user_ratings: dict, top_n: int = 10) -> pd.DataFrame:
+    """Recommend anime using collaborative filtering based on user ratings.
+
+    This tool uses a pre-trained SVD (Singular Value Decomposition) model to predict
+    ratings for anime the user hasn't seen, based on their ratings of other anime.
+
+    Args:
+        user_ratings: Dictionary mapping anime_id (str) to rating (int 1-10)
+        top_n: Maximum number of recommendations to return (default 10)
+
+    Returns:
+        pandas.DataFrame: DataFrame with columns ["anime_id", "name", "genre", "predicted_rating"]
+    """
+    print("🔧 Using tool: collaborative_filtering_recommend")
+    
+    # Get the advanced recommender with SVD model
+    recommender = _load_adv_recommender()
+    
+    if recommender.svd is None:
+        # Fallback to content-based if SVD not available
+        print("⚠️  SVD model not available, falling back to content-based recommendations")
+        anime_ids = [int(aid) for aid in user_ratings.keys()]
+        return recommend_anime(anime_ids)
+    
+    # Extract liked genres from high-rated anime (rating >= 7)
+    user_liked_genres = set()
+    for anime_id, rating in user_ratings.items():
+        if rating >= 7:
+            try:
+                genres = recommender.anime_info.loc[int(anime_id), 'genre']
+                if pd.notna(genres):
+                    for g in str(genres).split(','):
+                        user_liked_genres.add(g.strip())
+            except KeyError:
+                continue
+    
+    # Get recommendations using the existing collaborative filtering method
+    recommendations = recommender.recommend(user_ratings, user_liked_genres, n_recommendations=top_n)
+    
+    # Convert to DataFrame format
+    if recommendations:
+        df_recs = pd.DataFrame(recommendations)
+        df_recs = df_recs.rename(columns={'score': 'predicted_rating'})
+        return df_recs[["anime_id", "name", "genre", "predicted_rating"]]
+    else:
+        return pd.DataFrame(columns=["anime_id", "name", "genre", "predicted_rating"])
+
+
+
+
 tools_list = [
     recommend_similar_anime,
     get_anime_ids_before_year,
@@ -215,5 +269,6 @@ tools_list = [
     get_anime_ids_by_genre,
     search_anime_ids_by_synopsis,
     get_anime_details,
-    recommend_anime
+    recommend_anime,
+    collaborative_filtering_recommend
 ]
