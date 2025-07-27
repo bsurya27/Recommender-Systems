@@ -35,6 +35,7 @@ from tools import tools_list
 # LLM configuration
 # -----------------------------------------------------------------------------
 
+print("Available tools:", [tool.name for tool in tools_list])
 _llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3).bind_tools(tools_list)
 
 # -----------------------------------------------------------------------------
@@ -51,7 +52,21 @@ class ChatState(TypedDict):
 
 def llm_node(state: ChatState):
     """Run the LLM on the conversation so far."""
+    print("\n=== LLM THINKING ===")
+    print("Input messages:")
+    for msg in state["messages"]:
+        if hasattr(msg, 'content'):
+            print(f"- {type(msg).__name__}: {msg.content[:200]}...")
+    
     response = _llm.invoke(list(state["messages"]))
+    
+    print(f"\nLLM Response: {response.content[:500]}...")
+    if hasattr(response, 'tool_calls') and response.tool_calls:
+        print(f"Tool calls: {[call.get('name') for call in response.tool_calls]}")
+    else:
+        print("No tool calls made")
+    print("=== END LLM THINKING ===\n")
+    
     return {"messages": [response]}
 
 

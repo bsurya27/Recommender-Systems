@@ -212,6 +212,22 @@ def recommend_anime(anime_ids: List[int]) -> List[int]:
 
 
 @tool
+def get_anime_id_by_name(anime_name: str) -> int:
+    """Get anime ID by name (searches both original and English names).
+    
+    Args:
+        anime_name: Name of the anime to look up
+        
+    Returns:
+        Anime ID (int) or None if not found
+    """
+    print("🔧 Using tool: get_anime_id_by_name")
+    recommender = _load_adv_recommender()
+    anime_id = recommender.find_anime_id_by_name(anime_name)
+    return anime_id
+
+
+@tool
 def collaborative_filtering_recommend(user_ratings: dict, top_n: int = 10) -> pd.DataFrame:
     """Recommend anime using collaborative filtering based on user ratings.
 
@@ -270,5 +286,6 @@ tools_list = [
     search_anime_ids_by_synopsis,
     get_anime_details,
     recommend_anime,
+    get_anime_id_by_name,
     collaborative_filtering_recommend
 ]

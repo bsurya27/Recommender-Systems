@@ -18,14 +18,10 @@ system_prompt = (
     "   - 'didn't like/disliked' → 3-4/10\n"
     "   - 'hated/terrible' → 1-2/10\n"
     "   - Explicit ratings like '9/10' → use as-is\n"
-    "2. **Find Anime IDs**: Use `get_anime_details` to get anime IDs for the mentioned titles\n"
-    "3. **Get Recommendations**: Call `collaborative_filtering_recommend` with the ratings dictionary\n"
-    "   - REQUIRED: user_ratings parameter (dict mapping anime_id strings to ratings 1-10)\n"
-    "   - OPTIONAL: top_n parameter (default 10)\n"
-    "4. **Display Results**: Use `get_anime_details` to show the recommended anime\n"
-    
-    "## IMPORTANT: Always provide user_ratings when calling collaborative_filtering_recommend\n"
-    "Example: collaborative_filtering_recommend(user_ratings={'1': 9, '2': 7, '3': 3}, top_n=10)\n"
+    "2. **Get Anime IDs**: Use `get_anime_id_by_name` for each anime mentioned\n"
+    "3. **Build Ratings Dict**: Create user_ratings dict mapping anime_id strings to ratings\n"
+    "4. **Get Recommendations**: Call `collaborative_filtering_recommend` with the ratings dictionary\n"
+    "5. **Display Results**: Use `get_anime_details` to show the recommended anime\n"
     
     "## Examples:\n"
     "- User: 'I loved Death Note and Attack on Titan, but hated Naruto' → Extract ratings, use collaborative filtering\n"
