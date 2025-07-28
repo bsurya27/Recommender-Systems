@@ -140,6 +140,7 @@ ML_dev/                         # Pre-agent development work
 ├── generated_genres/           # LLM-generated genre files
 └── RAG_Data_creation/         # Wikipedia scraping utilities
 ---
+```
 
 ## Data Pipeline Details
 
