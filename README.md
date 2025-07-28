@@ -125,6 +125,8 @@ ML_dev/                         # Pre-agent development work
 ```
 
 # Agent-related files
+
+```
 ├── app.py                      # Main agent application
 ├── Agent.py                    # Agent implementation
 ├── llm_agent.py               # LLM integration
@@ -137,8 +139,6 @@ ML_dev/                         # Pre-agent development work
 ├── generated_synopses/         # LLM-generated synopsis files
 ├── generated_genres/           # LLM-generated genre files
 └── RAG_Data_creation/         # Wikipedia scraping utilities
-```
-
 ---
 
 ## Data Pipeline Details
